@@ -14,19 +14,19 @@ using Newtonsoft.Json;
 
 namespace JWTDemoForNetCore.Controllers
 {
-    [Route("api/[controller]")]
-    public class AccountController : Controller
+    [Route("/token")]
+    public class TokenController : Controller
     {
         private readonly JwtIssuerOptions _jwtOptions;
         private readonly ILogger _logger;
         private readonly JsonSerializerSettings _serializerSettings;
 
-        public AccountController(IOptions<JwtIssuerOptions> jwtOptions, ILoggerFactory loggerFactory)
+        public TokenController(IOptions<JwtIssuerOptions> jwtOptions, ILoggerFactory loggerFactory)
         {
             _jwtOptions = jwtOptions.Value;
             ThrowIfInvalidOptions(_jwtOptions);
 
-            _logger = loggerFactory.CreateLogger<AccountController>();
+            _logger = loggerFactory.CreateLogger<TokenController>();
 
             _serializerSettings = new JsonSerializerSettings
             {
@@ -47,7 +47,7 @@ namespace JWTDemoForNetCore.Controllers
 
             var claims = new List<Claim>
             {
-                new Claim(JwtRegisteredClaimNames.Sub, identity.Claims.FirstOrDefault(x => x.Type==ClaimTypes.NameIdentifier)?.Value),
+                //new Claim(JwtRegisteredClaimNames.Sub, identity.Claims.FirstOrDefault(x => x.Type==ClaimTypes.NameIdentifier)?.Value),
                 new Claim(JwtRegisteredClaimNames.Jti, await _jwtOptions.JtiGenerator()),
                 new Claim(JwtRegisteredClaimNames.Iat, ToUnixEpochDate(_jwtOptions.IssuedAt).ToString(),
                     ClaimValueTypes.Integer64)
@@ -55,6 +55,8 @@ namespace JWTDemoForNetCore.Controllers
 
             //claims.AddRange(identity.Claims.Where(x => x.Type != ClaimsIdentity.DefaultNameClaimType));
             claims.AddRange(identity.Claims);
+
+            ReplaceClaimKey(claims);
 
             var jwt = new JwtSecurityToken(
                 _jwtOptions.Issuer,
@@ -87,7 +89,13 @@ namespace JWTDemoForNetCore.Controllers
                 var claims = new List<Claim>();
                 //用户id
                 claims.Add(new Claim(ClaimTypes.NameIdentifier, "1"));
-                claims.Add(new Claim(ClaimTypes.Role, "admin,test"));
+                claims.Add(new Claim(ClaimTypes.Role, "Test"));
+
+                if (user.Username.ToLower() == "mingchen")
+                {
+                    claims.Add(new Claim(ClaimTypes.Role, "Admin"));
+                }
+
                 return Task.FromResult(new ClaimsIdentity(new GenericIdentity(user.Username, "Token"), claims));
             }
 
@@ -114,6 +122,32 @@ namespace JWTDemoForNetCore.Controllers
         {
             return (long)Math.Round((date.ToUniversalTime() - new DateTimeOffset(1970, 1, 1, 0, 0, 0, TimeSpan.Zero))
                 .TotalSeconds);
+        }
+
+        private static void ReplaceClaimKey(List<Claim> claims)
+        {
+            Action<string, string> replaceValue = (originName, newName) =>
+             {
+                 if (claims.Any(x => x.Type == originName))
+                 {
+                     var origins = claims.Where(x => x.Type == originName).ToList();
+                     if (claims.Any(x => x.Type == newName))
+                     {
+                         claims.RemoveAll(x => x.Type == newName);
+                     }
+
+                     foreach (var item in origins)
+                     {
+                         claims.Remove(item);
+
+                         claims.Add(new Claim(newName, item.Value));
+                     }
+                 }
+             };
+
+            replaceValue(ClaimTypes.NameIdentifier, JwtRegisteredClaimNames.Sub);
+            replaceValue(ClaimTypes.Name, JwtRegisteredClaimNames.UniqueName);
+            replaceValue(ClaimTypes.Role, "role");
         }
     }
 }

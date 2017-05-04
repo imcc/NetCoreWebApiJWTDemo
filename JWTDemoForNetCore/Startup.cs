@@ -47,10 +47,10 @@ namespace JWTDemoForNetCore
                 config.Filters.Add(new AuthorizeFilter(policy));
             });
 
-            //// Use policy auth.
+            // Use policy auth.
             //services.AddAuthorization(options =>
             //{
-            //    options.AddPolicy("DisneyUser",
+            //    options.AddPolicy("Admin",
             //        policy => policy.RequireClaim("DisneyCharacter", "IAmMickey"));
             //});
 
